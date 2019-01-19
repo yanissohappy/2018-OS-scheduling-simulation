@@ -17,8 +17,6 @@ char task[10]= {};
 char priority[2]= {};
 struct tasklist *for_remove_temp =NULL;
 
-//It's weird but I really need 2 versions of delete.
-
 void set_timer(int sec, int usec)
 {
     timer.it_value.tv_sec = sec; //延时时长
@@ -56,28 +54,8 @@ void hw_suspend(int msec_10)
 
 void hw_wakeup_pid(int pid)
 {
-    //task5沒有跑出"Mom(task5): wake up pid %d~\n"，但是其實他是有跑的!!!!!
-    //ctrlz跳出後可以發現其實task3有被喚醒，再執行一次start，暫停後用ps看可以發現其實task3有被叫醒
     set_timer(0,0);
 
-    // struct tasklist *H_wait_ptr = H_waiting_head;
-    // struct tasklist *L_wait_ptr = L_waiting_head;
-    // while (H_wait_ptr != NULL) {
-    //     if (find_node(H_waiting_head, pid)) {
-    //         H_wait_ptr=find_node(H_wait_ptr, pid);
-    //         H_wait_ptr->state = TASK_READY;
-    //         push(&H_ready_head, for_remove_delete(&H_waiting_head, H_wait_ptr));
-    //     }
-    // }
-
-    // while (L_wait_ptr != NULL) {
-    //     if (find_node(L_waiting_head, pid)) {
-    //         L_wait_ptr=find_node(L_wait_ptr, pid);
-    //         L_wait_ptr->state = TASK_READY;
-    //         push(&L_ready_head, for_remove_delete(&L_waiting_head, L_wait_ptr));
-    //     }
-    // }
-    //*********************************************************************************//
     struct tasklist *temp_H = H_waiting_head;
     struct tasklist *temp_L = L_waiting_head;
     struct tasklist *wake_H = NULL;
@@ -108,31 +86,6 @@ void hw_wakeup_pid(int pid)
             temp_L = temp_L->next;
         }
     }
-
-    //*********************************************************************************//
-
-    // struct tasklist *H_wait_ptr = H_waiting_head;
-    // struct tasklist *L_wait_ptr = L_waiting_head;
-
-    // while(H_wait_ptr!= NULL && H_wait_ptr->next != NULL) {
-    //     if(H_wait_ptr->pid == pid) {
-    //         printf("wake up:pid_%d name_%s.\n", H_wait_ptr->pid, H_wait_ptr->name);
-    //         H_wait_ptr->state = TASK_READY;
-    //         push(&H_ready_head, for_remove_delete(&H_waiting_head, H_wait_ptr));
-    //     } else {
-    //         H_wait_ptr = H_wait_ptr->next;
-    //     }
-    // }
-
-    // while(L_wait_ptr!= NULL && L_wait_ptr->next != NULL) {
-    //     if(L_wait_ptr->pid == pid) {
-    //         printf("wake up:pid_%d name_%s.\n", L_wait_ptr->pid, L_wait_ptr->name);
-    //         L_wait_ptr->state = TASK_READY;
-    //         push(&L_wait_ptr, for_remove_delete(&H_waiting_head, L_wait_ptr));
-    //     } else {
-    //         L_wait_ptr = L_wait_ptr->next;
-    //     }
-    // }
 
     start = end;
     end = &simulator_ctx;
@@ -331,11 +284,6 @@ void remove_node(int pid)
     } else {
         printf("can't find pid\n");
     }
-
-    // if(lastone(L_ready_head))//test
-    // {
-    // printf("last id %d",lastone(L_ready_head)->pid);
-    // }
 }
 
 char *priority_string(struct tasklist *node)
@@ -348,12 +296,6 @@ char *priority_string(struct tasklist *node)
 
 struct tasklist *find_node(struct tasklist *head, int pid)
 {
-    // struct tasklist *temp = head;
-    // while (temp != NULL && temp->pid != pid) {
-    //     temp = temp->next;
-    // }
-    // return temp; //find the pid!
-
     while (head != NULL && head->pid != pid) {
         head = head->next;
     }
@@ -418,7 +360,6 @@ void shell()
         if(input[0] == 'a') {//add
             sscanf(input, "add %s -t %s -p %s", task, quantum, priority);
 
-            //if(!strncmp(task, "task1", 5)||!strncmp(task, "task2", 5)||!strncmp(task, "task3", 5)||!strncmp(task, "task4", 5)|| !strncmp(task, "task5", 5)|| !strncmp(task, "task6", 5))
             if((strlen(task)==5) && (task[4]=='1'||task[4]=='2'||task[4]=='3'||task[4]=='4'||task[4]=='5'||task[4]=='6'))
                 hw_task_create(task);
             else
@@ -437,7 +378,6 @@ void shell()
                 puts("There is nothing!");
             } else {
                 puts("Pid  Name   State               Qtime    Priority    Quantum");
-                //printf("Pid	Name	State	Queueingtime	Priority	Quantum\n");
                 while (temp_terminated != NULL) {
                     printf("%-5d%-5s  %-15s	%-d	 %-4s        %-4s\n", temp_terminated->pid, temp_terminated->name,
                            enum_string(temp_terminated),
@@ -481,8 +421,7 @@ void simulator()
         struct tasklist *H_tmp = H_waiting_head;
         struct tasklist *L_tmp = L_waiting_head;
         struct tasklist *wake = NULL;
-        // if(H_ready_head==NULL)
-        //     printf("H_ready_head is NULL!!!!!\n");//test.
+
         while (H_tmp != NULL) {
             if (now.tv_sec > H_tmp->wakeup.tv_sec ||
                     (now.tv_sec >= H_tmp->wakeup.tv_sec &&
@@ -511,38 +450,20 @@ void simulator()
 
         if (!is_empty(H_ready_head)) {
             H_ready_head->state = TASK_RUNNING;
-            //printf("High running: %s\n", H_ready_head->name);//test
-            //printf("HIGH test_name:%s pid:%d state:%s timequan:%d priority:%s\n", H_ready_head->name, H_ready_head->pid, enum_string(H_ready_head), H_ready_head->quantum, priority_string(H_ready_head));
-            //test.
             fflush(stdout);
             set_timer(0, H_ready_head->quantum * 1000);
             start = &simulator_ctx;
             end = &H_ready_head->context;
             swapcontext(start, end);
         } else if(is_empty(H_ready_head) && !is_empty(H_waiting_head)) { //test.
-            // H_waiting_head->state = TASK_RUNNING;
-            // push(&H_ready_head, delete(&H_waiting_head, H_waiting_head));
-            // set_timer(0, H_ready_head->quantum * 1000);
-            // start = &simulator_ctx;
-            // end = &H_ready_head->context;
-            // swapcontext(start, end);
         } else if(is_empty(H_ready_head) && is_empty(H_waiting_head) && !is_empty(L_ready_head)) {
             L_ready_head->state = TASK_RUNNING;
-            //printf("Low running: %s\n", L_ready_head->name);//test
-            //printf("LOW test_name:%s pid:%d state:%s timequan:%d priority:%s\n", L_ready_head->name, L_ready_head->pid, enum_string(L_ready_head), L_ready_head->quantum, priority_string(L_ready_head));
-            //test.
             fflush(stdout);
             set_timer(0, L_ready_head->quantum * 1000);
             start = &simulator_ctx;
             end = &L_ready_head->context;
             swapcontext(start, end);
         } else if(is_empty(H_ready_head) && is_empty(H_waiting_head) && is_empty(L_ready_head) && !is_empty(L_waiting_head) ) {//test.
-            // L_waiting_head->state = TASK_RUNNING;
-            // push(&L_ready_head, delete(&L_waiting_head, L_waiting_head));
-            // set_timer(0, L_ready_head->quantum * 1000);
-            // start = &simulator_ctx;
-            // end = &L_ready_head->context;
-            // swapcontext(start, end);
         } else if (is_empty(H_ready_head) && is_empty(H_waiting_head) && is_empty(L_ready_head) && is_empty(L_waiting_head)) {
             start = &simulator_ctx;
             end = &shell_ctx;
@@ -565,7 +486,6 @@ void terminate()
                 H_ready_ptr = H_ready_ptr->next;
             }
 
-            //printf("H terminate: %s\n", H_ready_head->name); //test.
             fflush(stdout);
             H_ready_head->state = TASK_TERMINATED;
             push(&terminated_head, pop(&H_ready_head));
@@ -579,7 +499,6 @@ void terminate()
                 L_ready_ptr = L_ready_ptr->next;
             }
 
-            //printf("L terminate: %s\n", L_ready_head->name); //test.
             fflush(stdout);
             L_ready_head->state = TASK_TERMINATED;
             push(&terminated_head, pop(&L_ready_head));
@@ -595,7 +514,6 @@ void terminate()
 void signal_routine(int sig_num)
 {
     set_timer(0,0);
-    printf("hha\n");
     if (H_ready_head!=NULL && H_ready_head->state == TASK_RUNNING) {
 
         struct tasklist *H_ready_ptr = H_ready_head->next;
@@ -629,7 +547,7 @@ void signal_routine(int sig_num)
 void signal_stop(int sig_num)
 {
     set_timer(0,0);
-    printf("1\n");
+    printf("\n");
     if (H_ready_head!=NULL && H_ready_head->state == TASK_RUNNING) {
 
         struct tasklist *H_ready_ptr = H_ready_head->next;
@@ -655,7 +573,6 @@ void signal_stop(int sig_num)
         L_ready_head->state = TASK_READY;
         push(&L_ready_head, pop(&L_ready_head));
     }
-    printf("2\n");
     start = end;
     end = &shell_ctx;
     swapcontext(start, end);
